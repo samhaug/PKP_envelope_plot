@@ -1,0 +1,312 @@
+#!/usr/bin/env python
+
+import numpy as np
+import h5py
+from sys import argv
+from scipy.interpolate import interp1d
+from matplotlib import pyplot as plt
+from scipy.signal import tukey
+
+#Compares the PKP precursor envelope of stacked synths and data h5 envelopes
+#Data should have a sampling rate of 50 samp/sec
+#Synths should be from -35 sec to +10 seconds after
+#Synths range from 130 to 140
+
+
+def together_main(**kwargs):
+    save = kwargs.get('save',False)
+    EED_000_slab = 'EED_000_37_40_43_46_envelope_0.4_0.75.h5'
+    EED_000_pile = 'EED_000_117_120_123_126_envelope_0.4_0.75.h5'
+    EED_007_slab = 'EED_007_37_40_43_46_envelope_0.4_0.75.h5'
+    EED_007_pile = 'EED_007_147_150_153_156_envelope_0.4_0.75.h5'
+    EED_009_slab = 'EED_009_167_170_176_176_envelope_0.4_0.75.h5'
+    EED_009_pile = 'EED_009_137_140_143_146_envelope_0.4_0.75.h5'
+    EED_000_avg = 'EED_EED_000_000_2_2_envelope_0.4_0.75.h5'
+    EED_007_avg = 'EED_EED_007_007_2_2_envelope_0.4_0.75.h5'
+    EED_009_avg = 'EED_EED_009_009_2_2_envelope_0.4_0.75.h5'
+    data = 'combined_env.h5'
+
+    regime_list = [EED_000_slab,
+                   EED_007_slab,
+                   EED_009_slab,
+                   EED_000_pile,
+                   EED_007_pile,
+                   EED_009_pile]
+
+    avg_list = [EED_000_avg,
+                EED_007_avg,
+                EED_009_avg]
+
+
+
+    fig, ax = plt.subplots(1,2,figsize=(8,11))
+    compare_2synth_data(data,regime_list[0],regime_list[3],
+                        ax[0],title='Simulation A',label=r'$A_{1}$',label1=r'$A_{2}$')
+    compare_2synth_data(data,regime_list[1],regime_list[4],
+                        ax[1],title='Simulation B',label=r'$B_{1}$',label1=r'$B_{2}$')
+    ax[0].set_ylabel('Degrees from source',fontsize=15)
+    ax[0].set_xlabel('Seconds after PKIKP',fontsize=15)
+    ax[1].set_xlabel('Seconds after PKIKP',fontsize=15)
+    #compare_2synth_data(data,regime_list[2],regime_list[5],
+    #                    ax[2],title='9% EED',label='Slab',label1='Pile')
+    plt.show()
+
+def savefig_main(**kwargs):
+    save = kwargs.get('save',False)
+    EED_000_slab = 'EED_000_37_40_43_46_envelope_0.4_0.75.h5'
+    EED_000_pile = 'EED_000_117_120_123_126_envelope_0.4_0.75.h5'
+    EED_007_slab = 'EED_007_37_40_43_46_envelope_0.4_0.75.h5'
+    EED_007_pile = 'EED_007_147_150_153_156_envelope_0.4_0.75.h5'
+    EED_009_slab = 'EED_009_167_170_176_176_envelope_0.4_0.75.h5'
+    EED_009_pile = 'EED_009_137_140_143_146_envelope_0.4_0.75.h5'
+    EED_000_avg = 'EED_EED_000_000_2_2_envelope_0.4_0.75.h5'
+    EED_007_avg = 'EED_EED_007_007_2_2_envelope_0.4_0.75.h5'
+    EED_009_avg = 'EED_EED_009_009_2_2_envelope_0.4_0.75.h5'
+    data = 'combined_env.h5'
+
+    regime_list = [EED_000_slab,
+                   EED_007_slab,
+                   EED_009_slab,
+                   EED_000_pile,
+                   EED_007_pile,
+                   EED_009_pile]
+
+    avg_list = [EED_000_avg,
+                EED_007_avg,
+                EED_009_avg]
+
+    #fig,ax = plt.subplots(2,3,figsize=(25,30))
+    #ax = [ax[0][0],ax[0][1],ax[0][2],ax[1][0],ax[1][1],ax[1][2]]
+    #for idx,ii in enumerate(ax):
+    #    compare_synth_data(data,regime_list[idx],ii)
+
+    for idx,ii in enumerate(regime_list):
+        fig,ax = plt.subplots(figsize=(10,25))
+        compare_synth_data(data,regime_list[idx],ax)
+        plt.savefig('/home/samhaug/Desktop/'+ii.split('.h5')[0]+'.pdf')
+
+    for idx,ii in enumerate(avg_list):
+        fig,ax = plt.subplots(figsize=(10,25))
+        compare_synth_data(data,avg_list[idx],ax)
+        plt.savefig('/home/samhaug/Desktop/'+ii.split('.h5')[0]+'.pdf')
+
+    fig,ax = plt.subplots(figsize=(10,25))
+    compare_synth_synth(EED_000_pile,EED_000_slab,EED_000_avg,ax,'EED_000')
+    plt.savefig('/home/samhaug/Desktop/EED_000_compare.pdf')
+
+    fig,ax = plt.subplots(figsize=(10,25))
+    compare_synth_synth(EED_007_pile,EED_007_slab,EED_007_avg,ax,'EED_007')
+    plt.savefig('/home/samhaug/Desktop/EED_007_compare.pdf')
+
+    fig,ax = plt.subplots(figsize=(10,25))
+    compare_synth_synth(EED_009_pile,EED_009_slab,EED_009_avg,ax,'EED_009')
+    plt.savefig('/home/samhaug/Desktop/EED_009_compare.pdf')
+
+    #fig, ax = plt.subplots(1,3,figsize=(25,30))
+    #compare_synth_data(avg_list[0],EED_000_slab,ax[0])
+    #compare_synth_data(avg_list[0],EED_000_pile,ax[0])
+    #compare_synth_data(avg_list[1],EED_007_slab,ax[1])
+    #compare_synth_data(avg_list[1],EED_007_pile,ax[1])
+    #compare_synth_data(avg_list[2],EED_009_slab,ax[2])
+    #compare_synth_data(avg_list[2],EED_009_pile,ax[2])
+    #plt.show()
+
+def compare_2synth_data(data,synth,synth_1,ax,**kwargs):
+    '''
+    Compare synth and data. plot it on ax
+    '''
+    title = kwargs.get('title',None)
+    label = kwargs.get('label',None)
+    label1 = kwargs.get('label1',None)
+
+    # Read h5py files
+    f_data = h5py.File(data,'r')
+    f_synth = h5py.File(synth,'r')
+    f_synth_1 = h5py.File(synth_1,'r')
+
+    env_data = f_data['env']
+    std_data = f_data['std']
+
+    env_synth = f_synth['env'][...]
+    env_synth_1 = f_synth_1['env'][...]
+    t_synth = np.linspace(0,10,num=env_synth.shape[1])
+    f_synth = interp1d(t_synth,env_synth,axis=1)
+    f_synth_1 = interp1d(t_synth,env_synth_1,axis=1)
+    t_new = np.linspace(0,10,num=env_data.shape[1])
+    env_synth = f_synth(t_new)
+    env_synth_1 = f_synth_1(t_new)
+
+    # Roll the array to align the maxima
+    for idx, ii in enumerate(env_synth):
+        roll_synth = np.argmax(env_data[idx,:])-np.argmax(env_synth[idx,:])
+        roll_synth_1 = np.argmax(env_data[idx,:])-np.argmax(env_synth_1[idx,:])
+        env_synth[idx] = np.roll(env_synth[idx],roll_synth)
+        env_synth_1[idx] = np.roll(env_synth_1[idx],roll_synth_1)
+
+    int_data = env_data[:,2000:8000]
+    std_data = std_data[:,2000:8000]/2.5
+    int_synth = env_synth[:,2000:8000]
+    int_synth_1 = env_synth_1[:,2000:8000]
+
+    # Normalize each envelope on each column
+    int_data = int_data/int_data.max(axis=1)[:,None]
+    # set up interpolation
+    int_t = np.linspace(-14,10,num=int_data.shape[1])
+
+    # Multiply the precursor window to make it visible
+    int_synth[:,0:3500] *= 8
+    int_synth_1[:,0:3500] *= 8
+    int_data[:,0:3500] *= 8
+    std_data[:,0:3500] *= 8
+
+    # Add the pre noise level to all envelopes
+    for idx,ii in enumerate(int_data):
+        int_data[idx] += -1*np.mean(int_data[idx][0:300])
+        int_synth[idx] += -1*np.mean(int_synth[idx][0:300])
+        int_synth_1[idx] += -1*np.mean(int_synth_1[idx][0:300])
+
+    for idx, ii in enumerate(int_data):
+        if idx%2 != 0:
+            continue
+        y = [0,5,10,15,20]
+        y_label = [130,132.5,135,137.5,140]
+        ax.set_ylim((0,25))
+        ax.set_yticklabels(y_label)
+        ax.plot(int_t,int_data[idx]+idx,color='k')
+        ax.plot(int_t,int_synth[idx]+idx,color='r',lw=2)
+        ax.plot(int_t,int_synth_1[idx]+idx,color='g',lw=2)
+        ax.fill_between(int_t,idx+int_data[idx]-std_data[idx],
+                        idx+int_data[idx]+std_data[idx],alpha=0.1,color='k')
+        #ax.axhline(idx,color='k',alpha=0.5)
+        ax.set_xlim(int_t.min(),int_t.max())
+        ax.set_title(title,fontsize=16)
+    ax.axhline(10000,color='r',label=label)
+    ax.axhline(10000,color='g',label=label1)
+    ax.legend()
+
+def compare_synth_data(data,synth,ax):
+    '''
+    Compare synth and data. plot it on ax
+    '''
+    # Read h5py files
+    f_data = h5py.File(data,'r')
+    f_synth = h5py.File(synth,'r')
+
+    env_data = f_data['env']
+    std_data = f_data['std']
+
+    env_synth = f_synth['env'][...]
+    t_synth = np.linspace(0,10,num=env_synth.shape[1])
+    f_synth = interp1d(t_synth,env_synth,axis=1)
+    t_new = np.linspace(0,10,num=env_data.shape[1])
+    env_synth = f_synth(t_new)
+
+    # Roll the array to align the maxima
+    for idx, ii in enumerate(env_synth):
+        roll_synth = np.argmax(env_data[idx,:])-np.argmax(env_synth[idx,:])
+        env_synth[idx] = np.roll(env_synth[idx],roll_synth)
+
+    int_data = env_data[:,2000:8000]
+    std_data = std_data[:,2000:8000]/2.
+    int_synth = env_synth[:,2000:8000]
+
+    # Normalize each envelope on each column
+    int_data = int_data/int_data.max(axis=1)[:,None]
+    # set up interpolation
+    int_t = np.linspace(-14,10,num=int_data.shape[1])
+
+
+    # Multiply the precursor window to make it visible
+    int_synth[:,0:3500] *= 3
+    int_data[:,0:3500] *= 3
+    std_data[:,0:3500] *= 3
+
+    # Add the pre noise level to all envelopes
+    for idx,ii in enumerate(int_data):
+        int_data[idx] += -1*np.mean(int_data[idx][0:300])
+
+    for idx, ii in enumerate(int_data):
+        y = [0,5,10,15,20]
+        y_label = [130,132.5,135,137.5,140]
+        ax.set_ylim((0,25))
+        ax.set_yticklabels(y_label)
+        ax.plot(int_t,int_data[idx]+idx,color='r')
+        ax.plot(int_t,int_synth[idx]+idx,color='k')
+        ax.fill_between(int_t,idx+int_data[idx]-std_data[idx],
+                        idx+int_data[idx]+std_data[idx],alpha=0.2)
+        ax.axhline(idx,color='k',alpha=0.5)
+        ax.set_xlim(int_t.min(),int_t.max())
+        ax.set_title(synth)
+
+def compare_synth_synth(pile,slab,both,ax,title):
+    '''
+    Compare synth and data. plot it on ax
+    '''
+    # Read h5py files
+    f_pile = h5py.File(pile,'r')
+    f_slab = h5py.File(slab,'r')
+    f_both = h5py.File(both,'r')
+
+    env_pile = f_pile['env'][...]
+    env_slab = f_slab['env'][...]
+    env_both = f_both['env'][...]
+
+    t_pile = np.linspace(0,10,num=env_pile.shape[1])
+    t_slab = np.linspace(0,10,num=env_slab.shape[1])
+    t_both = np.linspace(0,10,num=env_both.shape[1])
+
+    f_pile = interp1d(t_pile,env_pile,axis=1)
+    f_slab = interp1d(t_slab,env_slab,axis=1)
+    f_both = interp1d(t_both,env_both,axis=1)
+
+    t_new = np.linspace(0,10,num=10000)
+    env_pile = f_pile(t_new)
+    env_slab = f_slab(t_new)
+    env_both = f_both(t_new)
+
+    # Roll the array to align the maxima
+    for idx, ii in enumerate(env_pile):
+        roll_slab = np.argmax(env_pile[idx,:])-np.argmax(env_slab[idx,:])
+        roll_both = np.argmax(env_pile[idx,:])-np.argmax(env_both[idx,:])
+        env_slab[idx] = np.roll(env_slab[idx],roll_slab)
+        env_both[idx] = np.roll(env_both[idx],roll_both)
+
+    int_pile = env_pile[:,2000:8000]
+    int_slab = env_slab[:,2000:8000]
+    int_both = env_both[:,2000:8000]
+
+    # Normalize each envelope on each column
+    int_pile = int_pile/int_pile.max(axis=1)[:,None]
+    int_slab = int_slab/int_slab.max(axis=1)[:,None]
+    int_both = int_both/int_both.max(axis=1)[:,None]
+    # set up interpolation
+    int_t = np.linspace(-14,10,num=int_pile.shape[1])
+
+    # Multiply the precursor window to make it visible
+    int_pile[:,0:3500] *= 3
+    int_slab[:,0:3500] *= 3
+    int_both[:,0:3500] *= 3
+
+    # Add the pre noise level to all envelopes
+    for idx,ii in enumerate(int_both):
+        int_pile[idx] += -1*np.mean(int_pile[idx][0:300])
+        int_slab[idx] += -1*np.mean(int_slab[idx][0:300])
+        int_both[idx] += -1*np.mean(int_both[idx][0:300])
+
+    for idx, ii in enumerate(int_both):
+        y = [0,5,10,15,20]
+        y_label = [130,132.5,135,137.5,140]
+        ax.set_ylim((0,25))
+        ax.set_yticklabels(y_label)
+        ax.plot(int_t,int_pile[idx]+idx,color='r')
+        ax.plot(int_t,int_slab[idx]+idx,color='g')
+        ax.plot(int_t,int_both[idx]+idx,color='b')
+        ax.axhline(idx,color='k',alpha=0.5)
+        ax.set_xlim(int_t.min(),int_t.max())
+        ax.set_title(title)
+    ax.axhline(5000,color='r',label='pile')
+    ax.axhline(5000,color='g',label='slab')
+    ax.axhline(5000,color='b',label='average')
+    ax.legend()
+
+together_main()

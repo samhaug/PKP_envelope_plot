@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+import numpy as np
+from sys import argv
+from matplotlib import pyplot as plt
+
+temp_file = argv[1]
+rotation  = argv[2]
+
+morb_array = np.genfromtxt('MORB.dat')
+temp_array = np.genfromtxt(temp_file)
+
+temp_x = temp_array[:,1]
+temp_y = temp_array[:,0]
+temp_val = temp_array[:,2]
+
+morb_x = morb_array[::2,1]
+morb_y = morb_array[::2,0]
+
+rad = np.sqrt(temp_x**2+temp_y**2)
+theta = np.degrees(np.arctan2(temp_y,temp_x))+float(rotation)
+theta[theta<0] += 360.
+theta[theta>360] += -360.
+
+morb_rad = np.sqrt(morb_x**2+morb_y**2)
+morb_theta = np.degrees(np.arctan2(morb_y,morb_x))+float(rotation)
+morb_theta[morb_theta<0] += 360.
+morb_theta[morb_theta>360] += -360.
+
+fig,ax = plt.subplots(2,1,figsize=(20,20))
+ax[0].scatter(theta,rad,c=temp_val,lw=0)
+ax[1].scatter(morb_theta,morb_rad,s=1,lw=0,color='k')
+ax[1].grid()
+ax[1].xaxis.set_ticks(np.arange(0,360,10))
+ax[0].xaxis.set_ticks(np.arange(0,360,10))
+plt.show()
+
+np.savetxt('temp_rotate.dat',np.hstack((theta[:,None],
+                                        rad[:,None],
+                                        temp_val[:,None])))
+
+np.savetxt('morb_rotate.dat',np.hstack((morb_theta[:,None],
+                                        morb_rad[:,None])))
+
+
+

@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import obspy
+import seispy
+import sys
+import numpy as np
+import h5py
+from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
+
+# Execute this script in /Processed dir
+fmin = float(sys.argv[1])
+fmax = float(sys.argv[2])
+
+st = obspy.read('*.filtered')
+#print('Remove gimps')
+#for tr in st:
+#    tr.interpolate(40)
+#st = seispy.filter.gimp_filter(st)
+print('Filter traces')
+if fmin == 0.:
+    print('lowpass')
+    st.filter('lowpass',freq=fmax)
+else:
+    st.filter('bandpass',freqmin=fmin,freqmax=fmax)
+#st.differentiate()
+env_array = np.zeros((21,10000))
+count_array = np.zeros((21,1))
+print('Process envelopes')
+
+offset_list = []
+offset_list_1 = []
+t_new = np.linspace(0,20,10000)
+for tr in st:
+    data = tr.data
+    sr = tr.stats.sampling_rate
+    npts = len(data)
+
+    # Noise is 60 to 20 seconds before phase
+    noise = data[int(sr*140):int(sr*180)]
+    #phase is in the middle
+    phase = data[int(sr*200):int(sr*205)]
+    #precursor window is from 20 seconds before phase
+    precur = data[int(sr*180):int(sr*220)]
+
+    if np.mean(np.abs(noise)) > phase.max()*0.2:
+        st.remove(tr)
+        continue
+    tr.detrend()
+
+    phase_time = 10-np.argmax(data[int(sr*190):int(sr*210)])/float(sr)
+    offset_list_1.append(phase_time)
+
+    mid_data = tr.data[(npts/2-npts/8):(npts/2+npts/8)]
+
+    offset_list.append(np.abs(np.argmax(mid_data)-len(mid_data/2))/sr)
+
+

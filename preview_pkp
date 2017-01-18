@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+
+import numpy as np
+from matplotlib import pyplot as plt
+import h5py
+from sys import argv
+
+f = h5py.File(argv[1])
+env = f['env'][...]
+std = f['std'][...]/2.
+
+t = np.linspace(-20,20,env.shape[1])
+
+for idx, ii in enumerate(env):
+    plt.plot(t,ii,color='k')
+    plt.axhline(idx,color='k',alpha=0.4)
+    plt.fill_between(t,idx+ii-std[idx],idx+ii+std[idx],color='b',alpha=0.2)
+
+plt.show()
+

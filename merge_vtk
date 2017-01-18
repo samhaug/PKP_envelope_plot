@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+import glob
+
+vtk_list = glob.glob('model_vpv_*vtk')
+f = open('merge_vpv.pvtk','w')
+
+f.write('<File version="pvtk-1.0"\n'+
+        'dataType="vtkUnstructuredGrid"\n'+
+        'numberOfPieces="{}" >\n'.format(str(len(vtk_list))))
+
+for ii in vtk_list:
+    f.write('<Piece fileName="{}" />\n'.format(ii))
+
+f.write('</File>')
+f.close()
+

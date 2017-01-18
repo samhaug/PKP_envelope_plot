@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+from matplotlib.transforms import Affine2D
+import mpl_toolkits.axisartist.floating_axes as floating_axes
+import numpy as np
+import mpl_toolkits.axisartist.angle_helper as angle_helper
+from matplotlib.projections import PolarAxes
+from mpl_toolkits.axisartist.grid_finder import (FixedLocator, MaxNLocator,
+                                                 DictFormatter)
+import matplotlib.pyplot as plt
+import sys
+import h5py
+import seispy
+import obspy
+from os import getcwd
+from scipy.signal import tukey
+from scipy.interpolate import interp1d
+
+pickle = '/home/samhaug/work1/PKP_precursor_data/1990_2000_PKIKP/Processed/talk_data.pk'
+env_file = '/home/samhaug/work1/PKP_precursor_data/combined_env.h5'
+eh5 = h5py.File(env_file,'r')
+env_dat = eh5['env'][...]
+
+st = obspy.read(pickle)
+st = seispy.filter.gimp_filter(st)
+
+
+fig,ax = plt.subplots(1,2,figsize=(6.0,4.0))
+
+line_600 = np.genfromtxt(
+     '/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/600km_line.csv',
+              delimiter=',')
+line_CMB = np.genfromtxt(
+     '/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/CMB_line.csv',
+              delimiter=',')
+z_600 = np.polyfit(line_600[:,0],line_600[:,1],3)
+p_600 = np.poly1d(z_600)
+z_CMB = np.polyfit(line_CMB[:,0],line_CMB[:,1],3)
+p_CMB = np.poly1d(z_CMB)
+time_range = np.linspace(130,148,100)
+
+ax[0].plot(p_600(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[0].plot(p_CMB(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[1].plot(p_CMB(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[1].plot(p_600(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[0].text(-14,139.5,'CMB',color='k',size=8)
+ax[0].text(-6,131.5,'600 km',color='k',size=8)
+ax[1].text(-14,139.5,'CMB',color='k',size=8)
+ax[1].text(-6,131.5,'600 km',color='k',size=8)
+ax[0].set_xlim(-16,4)
+ax[0].set_ylim(130,141)
+ax[1].set_xlim(-16,4)
+ax[1].set_ylim(130,141)
+ax[0].set_xlabel('Time (sec)',fontsize=9)
+ax[1].set_xlabel('Time (sec)',fontsize=9)
+ax[0].set_ylabel('Epicentral distance (degrees)',fontsize=9)
+ax[1].tick_params(axis='both', which='major', labelsize=6)
+ax[0].tick_params(axis='both', which='major', labelsize=6)
+
+t = np.linspace(-200,200,num=len(st[0].data))
+for tr in st:
+    ind = np.argmax(np.abs(tr.data[10000:12000]))
+    tr.data = np.roll(tr.data,-1*ind)
+range_list = []
+
+for idx,tr in enumerate(st):
+    r = np.round(tr.stats.sac['gcarc'])
+#    if r in range_list:
+#        continue
+    tr.data = tr.data/(1.2*tr.data[10000:10200].max())
+    env = obspy.signal.filter.envelope(tr.data)
+    range_list.append(r)
+#    if r == 140.:
+#        print 'fuck'
+#        tr.data = np.roll(tr.data,-800)
+    tr.data = np.roll(tr.data,100)/1.5
+    env = np.roll(env,100)/1.5
+    ax[0].plot(t,tr.data+np.round(tr.stats.sac['gcarc']),color='k',alpha=0.5)
+
+t = np.linspace(-20,20,num=env_dat.shape[1])
+print env_dat.shape
+env_dat = np.roll(env_dat,-200)
+for idx, ii in enumerate(env_dat):
+    ax[1].fill_between(t,120+idx+3*ii,
+                       120+idx,color='k',alpha=0.5)
+
+plt.tight_layout()
+
+plt.show()
+

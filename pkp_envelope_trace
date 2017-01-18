@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+
+import obspy
+import seispy
+import sys
+import numpy as np
+import h5py
+from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
+import os
+from scipy.signal import tukey
+
+def save_dict_to_hdf5(dic, filename):
+    """
+    ....
+    """
+    with h5py.File(filename, 'w') as h5file:
+        recursively_save_dict_contents_to_group(h5file, '/', dic)
+
+def recursively_save_dict_contents_to_group(h5file, path, dic):
+    """
+    ....
+    """
+    for key, item in dic.items():
+        if isinstance(item, (np.ndarray, np.int64, np.float64, str, bytes)):
+            h5file[path + key] = item
+        elif isinstance(item, dict):
+            recursively_save_dict_contents_to_group(h5file, path + key + '/', item)
+        else:
+            raise ValueError('Cannot save %s type'%type(item))
+
+def load_dict_from_hdf5(filename):
+    """
+    ....
+    """
+    with h5py.File(filename, 'r') as h5file:
+        return recursively_load_dict_contents_from_group(h5file, '/')
+
+def recursively_load_dict_contents_from_group(h5file, path):
+    """
+    ....
+    """
+    ans = {}
+    for key, item in h5file[path].items():
+        if isinstance(item, h5py._hl.dataset.Dataset):
+            ans[key] = item.value
+        elif isinstance(item, h5py._hl.group.Group):
+            ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
+    return ans
+
+# Execute this script in /Processed dir after a .pk stream file is made
+# by pkp_envelope
+st = obspy.read(sys.argv[1])
+
+#st.differentiate()
+env_array = np.zeros((21,10000))
+count_array = np.zeros((21,1))
+print('Process envelopes')
+
+st_coord = []
+ev_coord = []
+coord_list = []
+t_new = np.linspace(-20,20,10000)
+env_dict = {}
+
+for ii in range(0,21):
+    range_str = str(ii/2.+130)
+    env_dict[range_str+'_deg'] = []
+
+for idx,tr in enumerate(st):
+
+    precur = tr.data
+    sr = tr.stats.sampling_rate
+    ind = tr.stats.location
+    range_str = str(ind/2.+130)
+
+    env = obspy.signal.filter.envelope(precur)
+    t = np.linspace(-20,20,num=len(env))
+    f = interp1d(t,env)
+    int_env = f(t_new)
+    env_array[ind] += np.nan_to_num(int_env/int_env.max())
+
+    stat = (tr.stats.sac['stla'],tr.stats.sac['stlo'])
+    ev = (tr.stats.sac['evla'],tr.stats.sac['evlo'])
+    st_coord.append(stat)
+    ev_coord.append(ev)
+
+    count_array[ind,0] += 1
+    try:
+        env_dict[range_str+'_deg'].append(np.nan_to_num(int_env))
+    except KeyError:
+        continue
+
+st_coord = np.array(list(st_coord))
+ev_coord = np.array(list(ev_coord))
+
+for keys in env_dict:
+    env_dict[keys] = np.array(env_dict[keys])
+
+save_dict_to_hdf5(env_dict,'env_stream.h5')
+f = h5py.File('env_stream.h5','r+')
+f.create_dataset('env',data=env_array)
+f.create_dataset('stlatlon',data=st_coord)
+f.create_dataset('evlatlon',data=ev_coord)
+f.create_dataset('range_count',data=count_array)
+f.close()
+

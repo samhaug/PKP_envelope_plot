@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+
+import obspy
+import seispy
+import sys
+import numpy as np
+import h5py
+from matplotlib import pyplot as plt
+import glob
+from scipy.interpolate import interp1d
+import matplotlib.gridspec as gridspec
+from scipy.signal import tukey
+
+
+dir_list = glob.glob('*')
+env_list = []
+h5name = sys.argv[1]
+do_all = sys.argv[2]
+
+range_list = []
+stcoord = []
+evcoord = []
+stdlist = [[] for ii in range(0,21)]
+stdarray = np.zeros((21,10000))
+
+#if do_all != True:
+#    print "Ignoring mag 5.5"
+#    for dir in dir_list:
+#        if '5.5' in dir:
+#            dir_list.remove(dir)
+
+for dir in dir_list:
+    try:
+        f = h5py.File(dir+'/Processed/'+h5name,'r')
+        for ii in range(0,21):
+            range_str = str(ii/2.+130)
+            for jj in range(0,1500):
+                randi = np.random.randint(0,f[range_str+'_deg'].shape[0])
+                rand_env = f[range_str+'_deg'][randi]
+                stdlist[ii].append(np.nan_to_num(rand_env/rand_env.max()))
+        r = f['range_count'][...]
+        stcoord.append(f['stlatlon'][...])
+        evcoord.append(f['evlatlon'][...])
+        env_mat = np.nan_to_num(f['env'][...])
+        env_mat = env_mat/env_mat.max(axis=1)[:,None]*r
+        env_list.append(env_mat)
+        range_list.append(r)
+        f.close()
+    except IOError:
+        continue
+for idx,ii in enumerate(stdlist):
+    stdarray[idx] = np.std(ii,axis=0)
+
+env_full = np.sum(np.array(env_list),axis=0)
+range_full = (np.sum(np.array(range_list),axis=0))
+env_full += -1*env_full[:,1000:2000].mean(axis=1)[:,None]
+env_full = env_full/env_full.max(axis=1)[:,None]
+
+env_full *= tukey(stdarray.shape[1],alpha=0.2)
+gs = gridspec.GridSpec(20, 5)
+
+ax_env = plt.subplot(gs[0:17,0:4])
+ax_hist = plt.subplot(gs[0:17,-1])
+ax_cbar = plt.subplot(gs[-1,:-1])
+
+ax_hist.tick_params(axis='both', which='major', labelsize=10)
+ax_hist.xaxis.label.set_size(8)
+ax_hist.set_xlabel('Traces/bin')
+ax_hist.set_xticks(np.arange(0,3000,1000))
+
+ax_env.set_xlabel('Seconds after PKIKP')
+ax_env.set_ylabel('Degrees from source')
+ax_env.tick_params(axis='both', which='major', labelsize=10)
+ax_env.yaxis.label.set_size(10)
+ax_env.xaxis.label.set_size(10)
+
+
+bins = np.arange(0,21,1)
+ax_hist.barh(bins,range_full,1)
+ax_hist.set_yticklabels([])
+ax_hist.set_ylim((0,20))
+log_env = np.flipud(np.nan_to_num(np.log10(env_full)))
+log_env[log_env == 0] = -10
+im = ax_env.imshow(log_env[:,2000:7000],
+           interpolation='none',aspect='auto',
+           cmap='Spectral_r',clim=(-1.5,0),extent=[-15,5,130,140])
+plt.colorbar(im,cax=ax_cbar,orientation='horizontal')
+ax_cbar.set_xlabel(r'$\log_{10}$ Amplitude')
+ax_cbar.set_xticks([-1.5,-1.0,0.5,0.0])
+ax_cbar.xaxis.label.set_size(10)
+ax_cbar.tick_params(axis='both', which='major', labelsize=10)
+
+plt.show()
+
+t = np.linspace(0,env_full.shape[1],env_full.shape[1])
+for idx, ii in enumerate(env_full):
+    plt.plot(t,idx+ii,color='k')
+    plt.fill_between(t,idx+ii+stdarray[idx]/2.,idx+ii-stdarray[idx]/2.,color='b',alpha=0.3)
+    plt.axhline(idx,color='k',alpha=0.5)
+plt.show()
+
+f = h5py.File('combined_env.h5','w')
+f.create_dataset('env',data=env_full)
+f.create_dataset('range_count',data=range_full)
+f.create_dataset('stlatlon',data=np.vstack(stcoord))
+f.create_dataset('evlatlon',data=np.vstack(evcoord))
+f.create_dataset('std',data=stdarray)
+
+f.close()
+
+

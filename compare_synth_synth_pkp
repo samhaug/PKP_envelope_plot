@@ -1,0 +1,89 @@
+#!/home/samhaug/anaconda2/bin/python
+
+import numpy as np
+import h5py
+from sys import argv
+from scipy.interpolate import interp1d
+from matplotlib import pyplot as plt
+from scipy.signal import tukey
+
+#Compares the PKP precursor envelope of stacked synths and data h5 envelopes
+#Data should have a sampling rate of 50 samp/sec
+#Synths should be from -35 sec to +10 seconds after
+#Synths range from 130 to 140
+
+
+def main(**kwargs):
+    save = kwargs.get('save',False)
+    data = argv[1]
+    synth = argv[2]
+    print 'red data is : \n {}'.format(data)
+    print 'blue synth is : \n {}'.format(synth)
+    fig, ax = plt.subplots()
+    compare_synth_data(data,synth,ax)
+    if save:
+        plt.savefig('/home/samhaug/Desktop/'+synth+'.pdf')
+    else:
+        plt.show()
+
+def compare_synth_data(data,synth,ax,**kwargs):
+    '''
+    Compare synth and data. plot it on ax
+    '''
+    title = kwargs.get('title',None)
+    label = kwargs.get('label',None)
+
+    # Read h5py files
+    f_data = h5py.File(data,'r')
+    f_synth = h5py.File(synth,'r')
+
+    data = f_data['env']
+    synth = f_synth['env']
+
+    t_synth = np.linspace(-20,20,num=data.shape[1])
+    t_data = np.linspace(-20,20,num=synth.shape[1])
+
+    f_synth = interp1d(t_synth,synth,axis=1)
+    f_data = interp1d(t_data,data,axis=1)
+
+    t_new = np.linspace(-20,20,num=20000)
+
+    int_data = f_data(t_new)
+    int_synth = f_synth(t_new)
+
+    # Roll the array to align the maxima
+    #for idx, ii in enumerate(env_synth):
+    #    roll_synth = np.argmax(env_data[idx,:])-np.argmax(env_synth[idx,:])
+    #    env_synth[idx] = np.roll(env_synth[idx],roll_synth)
+
+    #int_data = int_data[:,2000:8000]
+    #int_synth = int_synth[:,2000:8000]
+
+    # Normalize each envelope on each column
+    #int_data = int_data/int_data.max(axis=1)[:,None]
+    # set up interpolation
+    int_t = np.linspace(-14,10,num=int_data.shape[1])
+
+    # Multiply the precursor window to make it visible
+    int_synth[:,0:10000] *= 4
+    int_data[:,0:10000] *= 4
+
+    # Add the pre noise level to all envelopes
+    #for idx,ii in enumerate(int_data):
+    #    int_data[idx] += -1*np.mean(int_data[idx][0:300])
+
+    for idx, ii in enumerate(int_data):
+        y = [0,5,10,15,20]
+        y_label = [130,132.5,135,137.5,140]
+        ax.set_ylim((0,25))
+        ax.set_yticklabels(y_label)
+        ax.plot(int_t,int_data[idx]+idx,color='r')
+        ax.plot(int_t,int_synth[idx]+idx,color='b')
+        ax.axhline(idx,color='k',alpha=0.5)
+        ax.set_xlim(t_synth.min(),t_synth.max())
+    #    ax.set_title(title)
+    #ax.axhline(10000,color='k',label=label)
+    #ax.axhline(10000,color='g',label=label1)
+    ax.legend()
+
+main()

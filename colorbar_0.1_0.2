@@ -1,0 +1,196 @@
+#!/usr/bin/env python
+
+import obspy
+import seispy
+from sys import argv
+import numpy as np
+import h5py
+from matplotlib import pyplot as plt
+import glob
+from scipy.interpolate import interp1d
+import matplotlib.gridspec as gridspec
+from scipy.signal import tukey
+from matplotlib import cm
+from scipy.interpolate import interp2d
+
+
+def interp_env(tenv):
+    #tenv[tenv == 0] = 10e-5
+    h = np.linspace(0,tenv.shape[1],num=tenv.shape[1])
+    x = np.linspace(0,tenv.shape[0],num=tenv.shape[0])
+    fenv = interp2d(h,x,tenv,kind='linear')
+    hnew = np.linspace(0,tenv.shape[1],num=1000)
+    xnew = np.linspace(0,tenv.shape[0],num=1500)
+    tenvnew = fenv(hnew,xnew)
+    return tenvnew
+
+curve_600 = np.genfromtxt('/home/samhaug/work1/PKP_precursor_data/600_curve.csv',delimiter=',')
+z_600 = np.polyfit(curve_600[:,0],curve_600[:,1],3)
+p_600 = np.poly1d(z_600)
+curve_CMB = np.genfromtxt('/home/samhaug/work1/PKP_precursor_data/CMB_curve.csv',delimiter=',')
+z_CMB = np.polyfit(curve_CMB[:,0],curve_CMB[:,1],3)
+p_CMB = np.poly1d(z_CMB)
+time_range = np.linspace(130,140,100)
+data = h5py.File('/home/samhaug/work1/PKP_precursor_data/combined_env.h5')
+data_env = data['env'][:,2000:7000]
+log_env = np.flipud(np.nan_to_num(np.log10(data_env)))
+log_env[log_env == 0] = -10
+log_env[:,0:1000]=-10
+log_env[:,-300::]= 0.2
+xxd,yyd = np.meshgrid(np.linspace(-15,5,num=log_env.shape[1]),
+                      np.linspace(130,140,num=log_env.shape[0]))
+
+font_size = 9
+title_size = 10
+labels = 6
+fig = plt.figure(figsize=(5.5,5.5))
+gs = gridspec.GridSpec(90,200)
+
+#ax1 = fig.add_subplot(gs[0:100,0:45])
+ax1 = fig.add_subplot(gs[0:30,0:90])
+ax1.set_xticks([])
+ax1.tick_params(axis='both', which='major', labelsize=labels)
+ax1.set_ylabel('Epicentral degrees',fontsize=font_size)
+ax1.set_title(r'A, $\delta v_{P} = 0.1\%$',fontsize=title_size)
+
+#ax2 = fig.add_subplot(gs[0:100,55:100])
+ax2 = fig.add_subplot(gs[40:70,0:90])
+ax2.tick_params(axis='both', which='major', labelsize=labels)
+ax2.set_title(r'B, $\delta v_{P} = 0.1\%$',fontsize=title_size)
+ax2.set_ylabel('Epicentral degrees',fontsize=font_size)
+ax2.set_xlabel('Time (sec)',fontsize=font_size)
+
+#ax3 = fig.add_subplot(gs[110:200,0:45])
+ax3 = fig.add_subplot(gs[0:30,105:195])
+ax3.set_yticklabels([])
+ax3.set_xticklabels([])
+ax3.tick_params(axis='both', which='major', labelsize=labels)
+#ax3.set_ylabel('Degrees from source',fontsize=font_size)
+ax3.set_title(r'A, $\delta v_{P} = 0.2\%$',fontsize=title_size)
+
+#ax4 = fig.add_subplot(gs[110:200,55:100])
+ax4 = fig.add_subplot(gs[40:70,105:195])
+ax4.set_yticklabels([])
+ax4.set_xlabel('Time (sec)',fontsize=font_size)
+ax4.tick_params(axis='both', which='major', labelsize=labels)
+ax4.set_title(r'B, $\delta v_{P} = 0.2\%$',fontsize=title_size)
+
+env1 = h5py.File('uniform_EED_000.h5','r')
+env1 = np.flipud(env1['env'][...])
+env2 = h5py.File('uniform_EED_007.h5','r')
+env2 = np.flipud(env2['env'][...])
+env3 = h5py.File('EED_000_0.2percent.h5','r')
+env3 = np.flipud(env3['env'][...])
+env4 = h5py.File('EED_007_0.2percent.h5','r')
+env4 = np.flipud(env4['env'][...])
+
+sr = int(env1.shape[1]/40.)
+#log_env[log_env == 0] = -10
+cmap = cm.get_cmap('gray_r',15)
+symcolor ='limegreen'
+########################################################################
+nenv1 = interp_env(np.log10(env1[:,5*sr:25*sr]))
+#im0 = ax1.imshow(np.log10(env1[:,5*sr:25*sr]),extent=[-15,5,130,140],
+#           interpolation='none',aspect='auto',
+#           cmap=cmap,clim=(-1.5,0))
+im0 = ax1.imshow(nenv1,extent=[-15,5,130,140],
+           interpolation='none',aspect='auto',
+           cmap=cmap,clim=(-1.5,0))
+
+cont_env = -1*np.log10(env1[:,5*sr:25*sr]).copy()
+cont_env[:,-10:] = 0.5
+xx,yy = np.meshgrid(np.linspace(-15,5,num=cont_env.shape[1]),np.linspace(130,140,
+                     num=cont_env.shape[0]))
+ax1.contour(xx,yy,np.flipud(cont_env),[1.4],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax1.contour(xx,yy,np.flipud(cont_env),[0.6],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax1.contour(xx,yy,np.flipud(cont_env),[1.0],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+########################################################################
+nenv2 = interp_env(np.log10(env2[:,5*sr:25*sr]))
+#im1 = ax2.imshow(np.log10(env2[:,5*sr:25*sr]),extent=[-15,5,130,140],
+#           interpolation='none',aspect='auto',
+#           cmap=cmap,clim=(-1.5,0))
+im1 = ax2.imshow(nenv2,extent=[-15,5,130,140],
+           interpolation='none',aspect='auto',
+           cmap=cmap,clim=(-1.5,0))
+cont_env = -1*np.log10(env2[:,5*sr:25*sr]).copy()
+cont_env[:,-10:] = 0.5
+xx,yy = np.meshgrid(np.linspace(-15,5,num=cont_env.shape[1]),np.linspace(130,140,
+                     num=cont_env.shape[0]))
+ax2.contour(xx,yy,np.flipud(cont_env),[1.0],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax2.contour(xx,yy,np.flipud(cont_env),[1.4],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax2.contour(xx,yy,np.flipud(cont_env),[0.6],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+########################################################################
+nenv3 = interp_env(np.log10(env3[:,5*sr:25*sr]))
+#im3 = ax3.imshow(np.log10(env3[:,5*sr:25*sr]),extent=[-15,5,130,140],
+#           interpolation='none',aspect='auto',
+#           cmap=cmap,clim=(-1.5,0))
+im3 = ax3.imshow(nenv3,extent=[-15,5,130,140],
+           interpolation='none',aspect='auto',
+           cmap=cmap,clim=(-1.5,0))
+cont_env = -1*np.log10(env3[:,5*sr:25*sr]).copy()
+cont_env[:,-10:] = 0.5
+xx,yy = np.meshgrid(np.linspace(-15,5,num=cont_env.shape[1]),np.linspace(130,140,
+                     num=cont_env.shape[0]))
+ax3.contour(xx,yy,np.flipud(cont_env),[1.0],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax3.contour(xx,yy,np.flipud(cont_env),[1.4],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax3.contour(xx,yy,np.flipud(cont_env),[0.6],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+########################################################################
+nenv4 = interp_env(np.log10(env4[:,5*sr:25*sr]))
+#im5 = ax4.imshow(np.log10(env4[:,5*sr:25*sr]),extent=[-15,5,130,140],
+#           interpolation='none',aspect='auto',
+#           cmap=cmap,clim=(-1.5,0))
+im5 = ax4.imshow(nenv4,extent=[-15,5,130,140],
+           interpolation='none',aspect='auto',
+           cmap=cmap,clim=(-1.5,0))
+cont_env = -1*np.log10(env4[:,5*sr:25*sr]).copy()
+cont_env[:,-10:] = 0.51
+xx,yy = np.meshgrid(np.linspace(-15,5,num=cont_env.shape[1]),np.linspace(130,140,
+                     num=cont_env.shape[0]))
+ax4.contour(xx,yy,np.flipud(cont_env),[1.0],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax4.contour(xx,yy,np.flipud(cont_env),[1.4],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+ax4.contour(xx,yy,np.flipud(cont_env),[0.6],
+               hold='on',colors=symcolor,lw=3,ls='solid')
+########################################################################
+
+for ax in [ax1,ax2,ax3,ax4]:
+    #ax.plot(p_600(time_range),time_range,c='w',lw=1,ls='dashed')
+    #ax.plot(p_CMB(time_range),time_range,c='w',lw=1,ls='dashed')
+    #ax.text(-14.5,139,'CMB',color='w',size=8)
+    #ax.text(-8,131,'600 km',color='w',size=8)
+    ax.set_xlim(-15,5)
+    ax.set_ylim(130,140)
+    #ax.axvline(0,color='w',lw=1,ls='dashed')
+    ax.contour(xxd,yyd,-1*np.flipud(log_env),[1.0],
+               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+    ax.contour(xxd,yyd,-1*np.flipud(log_env),[0.6],
+               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+    ax.contour(xxd,yyd,-1*np.flipud(log_env),[1.4],
+               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+
+#ax7 = fig.add_subplot(gs[320:327,10:90])
+ax7 = fig.add_subplot(gs[87:90,25:175])
+ax7.set_title(r'$\log_{10}$ Amplitude',fontsize=font_size)
+ax7.tick_params(axis='both', which='major', labelsize=10)
+plt.colorbar(im1,cax=ax7,orientation='horizontal',ticks=[-1.5,-1.0,-0.5,0])
+
+ax1.text(-6,138,'0.25',size=5,color='r')
+ax1.text(-11,138,'0.04',size=5,color='r')
+
+#plt.colorbar(im,cax=ax_cbar,orientation='horizontal')
+#ax_cbar.set_xlabel(r'$\log_{10}$ Amplitude')
+#ax_cbar.set_xticks([-1.5,-1.0,0.5,0.0])
+#ax_cbar.xaxis.label.set_size(10)
+#ax_cbar.tick_params(axis='both', which='major', labelsize=10)
+plt.show()
+

@@ -1,0 +1,156 @@
+#!/usr/bin/env python
+
+import obspy
+import seispy
+import sys
+import numpy as np
+import h5py
+from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
+import os
+from scipy.signal import tukey
+
+def save_dict_to_hdf5(dic, filename):
+    """
+    ....
+    """
+    with h5py.File(filename, 'w') as h5file:
+        recursively_save_dict_contents_to_group(h5file, '/', dic)
+
+def recursively_save_dict_contents_to_group(h5file, path, dic):
+    """
+    ....
+    """
+    for key, item in dic.items():
+        if isinstance(item, (np.ndarray, np.int64, np.float64, str, bytes)):
+            h5file[path + key] = item
+        elif isinstance(item, dict):
+            recursively_save_dict_contents_to_group(h5file, path + key + '/', item)
+        else:
+            raise ValueError('Cannot save %s type'%type(item))
+
+def load_dict_from_hdf5(filename):
+    """
+    ....
+    """
+    with h5py.File(filename, 'r') as h5file:
+        return recursively_load_dict_contents_from_group(h5file, '/')
+
+def recursively_load_dict_contents_from_group(h5file, path):
+    """
+    ....
+    """
+    ans = {}
+    for key, item in h5file[path].items():
+        if isinstance(item, h5py._hl.dataset.Dataset):
+            ans[key] = item.value
+        elif isinstance(item, h5py._hl.group.Group):
+            ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
+    return ans
+
+# Execute this script in /Processed dir
+fmin = float(sys.argv[1])
+fmax = float(sys.argv[2])
+
+st = obspy.read('*.filtered')
+#print('Remove gimps')
+#for tr in st:
+#    tr.interpolate(40)
+#st = seispy.filter.gimp_filter(st)
+print('Filter traces')
+if fmin == 0.:
+    print('lowpass')
+    st.filter('lowpass',freq=fmax)
+else:
+    st.filter('bandpass',freqmin=fmin,freqmax=fmax)
+#st.differentiate()
+env_array = np.zeros((21,10000))
+count_array = np.zeros((21,1))
+print('Process envelopes')
+
+st_coord = []
+ev_coord = []
+coord_list = []
+t_new = np.linspace(0,20,10000)
+env_dict = {}
+
+st_out = obspy.core.Stream()
+
+for ii in range(0,21):
+    range_str = str(ii/2.+130)
+    env_dict[range_str+'_deg'] = []
+
+for idx,tr in enumerate(st):
+
+    data = tr.data
+    sr = tr.stats.sampling_rate
+    npts = len(data)
+
+    # Noise is 60 to 20 seconds before phase
+    noise = data[int(sr*140):int(sr*180)]
+    #phase is in the middle
+    phase = data[int(sr*195):int(sr*225)]
+    #precursor window is from 20 seconds before phase
+    precur = data[int(sr*180):int(sr*220)]
+
+    if np.max(np.abs(noise)) > np.abs(phase).max()*0.2:
+        st.remove(tr)
+        continue
+
+    env = obspy.signal.filter.envelope(precur)-np.mean(np.sqrt(noise**2))
+    env_phase =  env[int(sr*15):int(sr*25)]
+    t = np.linspace(0,20,num=len(env))
+    f = interp1d(t,env)
+    t_data = np.linspace(-20,20,num=len(precur))
+    f_data = interp1d(t_data,precur)
+    t_new_data = np.linspace(-20,20,num=1000)
+    int_data = f_data(t_new_data)
+    int_env = f(t_new)/env_phase.max()
+    new_tr = obspy.core.Trace()
+
+    new_tr.stats.sac = {}
+    new_tr.data = int_data
+    new_tr.stats.npts = len(int_data)
+    new_tr.stats.sampling_rate = len(int_data)/40.
+    new_tr.stats.network = tr.stats.network
+    new_tr.stats.station = tr.stats.station
+    new_tr.stats.sac['stla'] = tr.stats.sac['stla']
+    new_tr.stats.sac['stlo'] = tr.stats.sac['stlo']
+    new_tr.stats.sac['evla'] = tr.stats.sac['evla']
+    new_tr.stats.sac['evlo'] = tr.stats.sac['evlo']
+    new_tr.stats.sac['gcarc'] = tr.stats.sac['gcarc']
+
+    stat = (tr.stats.sac['stla'],tr.stats.sac['stlo'])
+    ev = (tr.stats.sac['evla'],tr.stats.sac['evlo'])
+    st_coord.append(stat)
+    ev_coord.append(ev)
+    ind = int((round(tr.stats.sac['gcarc']*2)/2)*2-260)
+    if ind >= 21:
+        continue
+    new_tr.stats.location = ind
+    st_out.append(new_tr)
+    append_env = np.nan_to_num(int_env)
+    env_array[ind,:] += tukey(len(append_env),alpha=0.3)*append_env
+    count_array[ind,0] += 1
+    range_str = str(ind/2.+130)
+    try:
+        env_dict[range_str+'_deg'].append(np.nan_to_num(int_env))
+    except KeyError:
+        continue
+
+st_coord = np.array(list(st_coord))
+ev_coord = np.array(list(ev_coord))
+
+for keys in env_dict:
+    env_dict[keys] = np.array(env_dict[keys])
+
+save_dict_to_hdf5(env_dict,'{}_{}_env.h5'.format(str(fmin),str(fmax)))
+f = h5py.File('{}_{}_env.h5'.format(str(fmin),str(fmax)),'r+')
+f.create_dataset('env',data=env_array)
+f.create_dataset('stlatlon',data=st_coord)
+f.create_dataset('evlatlon',data=ev_coord)
+f.create_dataset('range_count',data=count_array)
+f.create_dataset('{}_{}'.format(str(fmin),str(fmax)),data=np.zeros(1))
+f.close()
+
+st_out.write('{}_{}.pk'.format(str(fmin),str(fmax)),format='PICKLE')

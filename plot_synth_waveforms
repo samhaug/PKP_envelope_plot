@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+from matplotlib.transforms import Affine2D
+import mpl_toolkits.axisartist.floating_axes as floating_axes
+import numpy as np
+import mpl_toolkits.axisartist.angle_helper as angle_helper
+from matplotlib.projections import PolarAxes
+from mpl_toolkits.axisartist.grid_finder import (FixedLocator, MaxNLocator,
+                                                 DictFormatter)
+import matplotlib.pyplot as plt
+import sys
+import h5py
+import seispy
+import obspy
+from os import getcwd
+from scipy.signal import tukey
+from scipy.interpolate import interp1d
+
+stpk1 = '/home/samhaug/work1/PKP_precursor_sims/radial_average_0.1percent/uniform_EED_000_1_0.1/st_Z.pk'
+stpk2 = '/home/samhaug/work1/PKP_precursor_sims/radial_average_0.1percent/uniform_EED_000_2_0.1/st_Z.pk'
+stpk3 = '/home/samhaug/work1/PKP_precursor_sims/radial_average_0.1percent/uniform_EED_000_3_0.1/st_Z.pk'
+stpk4 = '/home/samhaug/work1/PKP_precursor_sims/radial_average_0.1percent/uniform_EED_000_4_0.1/st_Z.pk'
+fmin = 0.4
+fmax = 0.75
+
+env_h5 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/uniform_EED_000.h5')
+env = env_h5['env'][...]
+
+fig,ax = plt.subplots(1,2,figsize=(6.0,4.0))
+
+line_600 = np.genfromtxt(
+     '/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/600km_line.csv',
+              delimiter=',')
+line_CMB = np.genfromtxt(
+     '/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/CMB_line.csv',
+              delimiter=',')
+z_600 = np.polyfit(line_600[:,0],line_600[:,1],3)
+p_600 = np.poly1d(z_600)
+z_CMB = np.polyfit(line_CMB[:,0],line_CMB[:,1],3)
+p_CMB = np.poly1d(z_CMB)
+time_range = np.linspace(130,148,100)
+
+rotate = getcwd().split('_')[-1]
+
+def setup_stream(stpk,fmin,fmax):
+    st = obspy.read(stpk)
+    st = seispy.convert.set_gcarc(st)
+    st.differentiate()
+    st = seispy.data.normalize_on_phase(st,phase=['PKIKP'])
+    return st
+
+def plot_waveform(waveform,alpha,color,ax):
+    waveform *= 1./waveform.max(axis=1)[:,None]
+    waveform[:,0:1400] *= 10
+    t = np.linspace(-20,20,waveform.shape[1])
+    for idx, ii in enumerate(waveform):
+        if idx%2 == 0:
+            ax.plot(t,130+idx/2.+ii,color=color,alpha=alpha,lw=0.5)
+            ax.axhline(130+idx/2.,color='k',alpha=0.2,lw=0.5)
+
+def plot_envelopes(envelope,alpha,color,ax,lw):
+    envelope *= 1./envelope.max(axis=1)[:,None]
+    envelope[:,0:1400] *= 20
+    t = np.linspace(-20,20,envelope.shape[1])
+    for idx, ii in enumerate(envelope):
+        if idx%2 == 0:
+            h = 130+idx/2.*np.ones(envelope.shape[1])
+            ax.plot(t,130+idx/2.+ii,color=color,alpha=alpha,lw=lw)
+            ax.fill_between(t,h,130+idx/2.+ii,color='k',alpha=0.3)
+            ax.axhline(130+idx/2.,color='k',alpha=0.7,lw=0.5)
+
+st1 = setup_stream(stpk1,fmin,fmax)
+st2 = setup_stream(stpk2,fmin,fmax)
+st3 = setup_stream(stpk3,fmin,fmax)
+st4 = setup_stream(stpk4,fmin,fmax)
+
+envelope, waveform = seispy.plot.new_precursor_PKIKP(st1,plot=False,align=False,
+                                filter=(float(fmin),float(fmax)),time=(-20,20))
+envelope2, waveform2 = seispy.plot.new_precursor_PKIKP(st2,plot=False,align=False,
+                                filter=(float(fmin),float(fmax)),time=(-20,20))
+envelope3, waveform3 = seispy.plot.new_precursor_PKIKP(st3,plot=False,align=False,
+                                filter=(float(fmin),float(fmax)),time=(-20,20))
+envelope4, waveform4 = seispy.plot.new_precursor_PKIKP(st4,plot=False,align=False,
+                                filter=(float(fmin),float(fmax)),time=(-20,20))
+
+plot_waveform(np.roll(waveform,0,axis=1),0.8,'k',ax[0])
+plot_waveform(np.roll(waveform2,0,axis=1),0.8,'r',ax[0])
+plot_waveform(np.roll(waveform3,0,axis=1),0.8,'b',ax[0])
+plot_waveform(np.roll(waveform4,0,axis=1),0.8,'g',ax[0])
+
+avg_env = (envelope+envelope2+envelope3+envelope4)/4.
+plot_envelopes(np.roll(avg_env,0,axis=1),1.0,'k',ax[1],0.5)
+
+ax[0].plot(p_600(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[0].plot(p_CMB(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[1].plot(p_CMB(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[1].plot(p_600(time_range),time_range,c='k',lw=1,ls='dashed')
+ax[0].text(-14,139.5,'CMB',color='k',size=8)
+ax[0].text(-6,131.5,'600 km',color='k',size=8)
+ax[1].text(-14,139.5,'CMB',color='k',size=8)
+ax[1].text(-6,131.5,'600 km',color='k',size=8)
+
+ax[0].tick_params(axis='both', which='major', labelsize=6)
+ax[0].set_xlim(-16,0)
+ax[0].set_ylim(130,141)
+ax[0].set_xlabel('Time (sec)',fontsize=9)
+ax[0].set_ylabel('Epicentral distance (degrees)',fontsize=9)
+
+ax[1].tick_params(axis='both', which='major', labelsize=6)
+ax[1].set_xlim(-16,0)
+ax[1].set_ylim(130,141)
+ax[1].set_xlabel('Time (sec)',fontsize=9)
+
+plt.tight_layout()
+
+plt.show()
+
+
+
+
+
+

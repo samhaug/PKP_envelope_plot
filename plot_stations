@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+import numpy as np
+from math import radians, degrees, cos, sin, sqrt, atan2, asin, fabs, pi
+from mpl_toolkits.basemap import Basemap
+from matplotlib import pyplot as plt
+from sys import argv
+import h5py
+from obspy.taup import TauPyModel
+model = TauPyModel('prem')
+from geopy.distance import VincentyDistance
+from geopy import Point
+
+
+'''
+Make figure showing pierce points of PKP as well as source/receivers
+
+one arguemnt should be
+/home/samhaug/work1/PKP_precursor_data/combined_env.h5
+'''
+
+def get_bearing(evla,evlo,stla,stlo):
+    dLon = radians(stlo-evlo)
+    lat1 = radians(evla)
+    lat2 = radians(stla)
+    y = sin(dLon) * cos(lat2)
+    x = cos(lat1)* sin(lat2) - sin(lat1) * cos(lat2)* cos(dLon)
+    return np.degrees(atan2(y, x))
+
+def distance_haversine(evla,evlo,stla,stlo,radius=6371000.):
+    """ note that the default distance is in meters """
+    dLat = radians(stla-evla)
+    dLon = radians(stlo-evlo)
+    lat1 = radians(evla)
+    lat2 = radians(stla)
+    a = sin(dLat/2) * sin(dLat/2) + sin(dLon/2) * sin(dLon/2) * cos(lat1) * cos(lat2)
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    return np.degrees(c)
+
+coord_file = h5py.File('/home/samhaug/work1/PKP_precursor_data/combined_env.h5','r')
+st = coord_file['stlatlon'][...]
+ev = coord_file['evlatlon'][...]
+
+pierce_coord = []
+m = Basemap(projection='hammer',lon_0=180)
+for idx, ii in enumerate(range(0,len(st))):
+   dist = distance_haversine(ev[ii][0],ev[ii][1],st[ii][0],st[ii][1])
+   a = model.get_pierce_points(0,dist,['PKIKP'])
+   try:
+       b = a[0]
+   except IndexError:
+       continue
+   c = b.pierce
+   c = c.view(np.float64).reshape(c.shape + (-1,))
+   p =  np.degrees(c[c[:,-1] == 2891.][:,2])
+   origin = Point(ev[ii][0],ev[ii][1])
+   bearing = get_bearing(ev[ii][0],ev[ii][1],st[ii][0],st[ii][1])
+   cmb_in = VincentyDistance(kilometers=111.195*p[0]).destination(origin,bearing)
+   cmb_out  = VincentyDistance(kilometers=111.195*p[1]).destination(origin,bearing)
+
+   #sx,sy = m(st[ii][1],st[ii][0])
+   #ex,ey = m(ev[ii][1],ev[ii][0])
+   #inx,iny = m(cmb_in[1],cmb_in[0])
+   #outx,outy = m(cmb_out[1],cmb_out[0])
+   #m.scatter(inx,iny,30,'k')
+   #m.scatter(outx,outy,30,'k')
+   #m.scatter(sx,sy,30,'b')
+   #m.scatter(ex,ey,30,'r')
+   #plt.show()
+   pierce_coord.append(m(cmb_in[1],cmb_in[0]))
+   pierce_coord.append(m(cmb_out[1],cmb_out[0]))
+
+fig,ax = plt.subplots(2,1,figsize=(3,3))
+plt.sca(ax[1])
+pierce_coord = np.array(pierce_coord)
+m = Basemap(projection='hammer',lon_0=180)
+m.drawcoastlines()
+m.scatter(pierce_coord[:,0],pierce_coord[:,1],3,'purple',alpha=0.8,lw=0.1)
+
+plt.sca(ax[0])
+m = Basemap(projection='hammer',lon_0=180)
+m.drawcoastlines()
+sx,sy = m(st[:,1],st[:,0])
+ex,ey = m(ev[:,1],ev[:,0])
+m.scatter(sx,sy,3,'navy',marker='D',lw=0,alpha=0.8)
+m.scatter(ex,ey,3,'goldenrod',alpha=0.8,lw=0)
+plt.show()
+
+
