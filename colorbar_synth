@@ -12,6 +12,7 @@ from scipy.interpolate import interp2d
 import matplotlib.gridspec as gridspec
 from scipy.signal import tukey
 from matplotlib import cm
+from subprocess import call
 
 
 def interp_env(tenv):
@@ -23,10 +24,10 @@ def interp_env(tenv):
     tenvnew = fenv(hnew,xnew)
     return tenvnew
 
-curve_600 = np.genfromtxt('600km_line.csv',delimiter=',')
+curve_600 = np.genfromtxt('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/600km_line.csv',delimiter=',')
 z_600 = np.polyfit(curve_600[:,0],curve_600[:,1],3)
 p_600 = np.poly1d(z_600)
-curve_CMB = np.genfromtxt('CMB_line.csv',delimiter=',')
+curve_CMB = np.genfromtxt('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/CMB_line.csv',delimiter=',')
 z_CMB = np.polyfit(curve_CMB[:,0],curve_CMB[:,1],3)
 p_CMB = np.poly1d(z_CMB)
 time_range = np.linspace(130,140,100)
@@ -47,7 +48,8 @@ gs = gridspec.GridSpec(90,300)
 
 #ax1 = fig.add_subplot(gs[0:100,0:45])
 ax1 = fig.add_subplot(gs[0:30,0:90])
-ax1.set_xticks([])
+#ax1.set_xticks([])
+ax1.set_xticklabels([])
 ax1.tick_params(axis='both', which='major', labelsize=labels)
 ax1.set_ylabel('Epicentral degrees',fontsize=font_size)
 ax1.set_title(r'A: $\delta \rho = 0\%$',fontsize=title_size)
@@ -91,17 +93,17 @@ ax6.tick_params(axis='both', which='major', labelsize=labels)
 ax6.set_title(r'$B_{2}$: Upwelling',fontsize=title_size)
 
 
-env0 = h5py.File('uniform_EED_000.h5','r')
+env0 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/uniform_EED_000.h5','r')
 env0 = np.flipud(env0['env'][...])
-env1 = h5py.File('uniform_EED_007.h5','r')
+env1 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/uniform_EED_007.h5','r')
 env1 = np.flipud(env1['env'][...])
-env2 = h5py.File('EED_000_117_120_123_126_envelope_0.4_0.75.h5','r')
+env2 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_000_117_120_123_126_envelope_0.4_0.75.h5','r')
 env2 = np.flipud(env2['env'][...])
-env3 = h5py.File('EED_000_37_40_43_46_envelope_0.4_0.75.h5','r')
+env3 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_000_37_40_43_46_envelope_0.4_0.75.h5','r')
 env3 = np.flipud(env3['env'][...])
-env4 = h5py.File('EED_007_147_150_153_156_envelope_0.4_0.75.h5','r')
+env4 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_007_147_150_153_156_envelope_0.4_0.75.h5','r')
 env4 = np.flipud(env4['env'][...])
-env5 = h5py.File('EED_007_37_40_43_46_envelope_0.4_0.75.h5','r')
+env5 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_007_37_40_43_46_envelope_0.4_0.75.h5','r')
 env5 = np.flipud(env5['env'][...])
 
 #ax_env.set_xlabel('Seconds after PKIKP')
@@ -228,10 +230,19 @@ ax7.set_title(r'$\log_{10}$ Amplitude',fontsize=font_size)
 ax7.tick_params(axis='both', which='major', labelsize=10)
 plt.colorbar(im1,cax=ax7,orientation='horizontal',ticks=[-1.5,-1.0,-0.5,0])
 
+ax1.text(-10,138,'0.04',size=5,color='r')
+ax1.text(-6.8,139,'0.1',size=5,color='r')
+ax1.text(-3.5,139,'0.25',size=5,color='r')
+
+ax1.text(-5,134.5,'0.04',size=5,color='green')
+ax1.text(-1,136,'0.1',size=5,color='lime')
+ax1.text(1,137,'0.25',size=5,color='lime')
+
+
 #plt.colorbar(im,cax=ax_cbar,orientation='horizontal')
 #ax_cbar.set_xlabel(r'$\log_{10}$ Amplitude')
 #ax_cbar.set_xticks([-1.5,-1.0,0.5,0.0])
 #ax_cbar.xaxis.label.set_size(10)
 #ax_cbar.tick_params(axis='both', which='major', labelsize=10)
-plt.show()
-
+plt.savefig('grey_synth.pdf')
+call('evince grey_synth.pdf',shell=True)

@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+import numpy as np
+from matplotlib import pyplot as plt
+from sys import argv
+import h5py
+
+EED_000_1 = h5py.File('EED_000_count.h5')
+EED_000_2 = h5py.File('EED_000_count_1.h5')
+EED_000_3 = h5py.File('EED_000_count_2.h5')
+EED_000_4 = h5py.File('EED_000_count_3.h5')
+
+EED_007_1 = h5py.File('EED_007_count.h5')
+EED_007_2 = h5py.File('EED_007_count_1.h5')
+EED_007_3 = h5py.File('EED_007_count_2.h5')
+EED_007_4 = h5py.File('EED_007_count_3.h5')
+
+scat_000_120 = h5py.File('scat_000_120.h5')
+scat_000_40 = h5py.File('scat_000_40.h5')
+scat_007_150 = h5py.File('scat_007_150.h5')
+scat_007_40 = h5py.File('scat_007_40.h5')
+
+list_0_1 = []
+list_0_2 = []
+list_0_3 = []
+list_0_4 = []
+
+list_7_1 = []
+list_7_2 = []
+list_7_3 = []
+list_7_4 = []
+
+vp_000_1 = EED_000_1['vp'][...]
+vp_000_2 = EED_000_2['vp'][...]
+vp_000_3 = EED_000_3['vp'][...]
+vp_000_4 = EED_000_4['vp'][...]
+
+vp_007_1 = EED_007_1['vp'][...]
+vp_007_2 = EED_007_2['vp'][...]
+vp_007_3 = EED_007_3['vp'][...]
+vp_007_4 = EED_007_3['vp'][...]
+
+vp_000_120 = scat_000_120['vp'][...]
+vp_000_40 = scat_000_40['vp'][...]
+vp_007_150 = scat_007_150['vp'][...]
+vp_007_40 = scat_007_40['vp'][...]
+
+scat_000_120_list = []
+scat_000_40_list = []
+scat_007_150_list = []
+scat_007_40_list = []
+
+test_scat = h5py.File('scat_000.h5')
+test_scat_7 = h5py.File('scat_007.h5')
+test_scat = test_scat['vp'][...]
+test_scat_7 = test_scat_7['vp'][...]
+test_scat_list = []
+test_scat_list_7 = []
+
+shape = float(vp_000_1.shape[1])
+for idx, ii in enumerate(vp_000_1):
+
+   list_0_1.append(np.count_nonzero(np.isnan(ii))/shape*100)
+   list_0_2.append(np.count_nonzero(np.isnan(vp_000_2[idx]))/shape*100)
+   list_0_3.append(np.count_nonzero(np.isnan(vp_000_3[idx]))/shape*100)
+   list_0_4.append(np.count_nonzero(np.isnan(vp_000_4[idx]))/shape*100)
+
+   list_7_1.append(np.count_nonzero(np.isnan(vp_007_1[idx]))/shape*100)
+   list_7_2.append(np.count_nonzero(np.isnan(vp_007_2[idx]))/shape*100)
+   list_7_3.append(np.count_nonzero(np.isnan(vp_007_3[idx]))/shape*100)
+   list_7_4.append(np.count_nonzero(np.isnan(vp_007_4[idx]))/shape*100)
+
+   scat_000_120_list.append(np.count_nonzero(np.isnan(vp_000_120[idx]))/shape*100)
+   scat_000_40_list.append(np.count_nonzero(np.isnan(vp_000_40[idx]))/shape*100)
+   scat_007_150_list.append(np.count_nonzero(np.isnan(vp_007_150[idx]))/shape*100)
+   scat_007_40_list.append(np.count_nonzero(np.isnan(vp_007_40[idx]))/shape*100)
+
+   test_scat_list.append(np.count_nonzero(np.isnan(test_scat[idx]))/shape*100)
+   test_scat_list_7.append(np.count_nonzero(np.isnan(test_scat_7[idx]))/shape*100)
+
+av_0=(np.array(list_0_1)+np.array(list_0_2)+np.array(list_0_3)+np.array(list_0_4))/4.
+av_7=(np.array(list_7_1)+np.array(list_7_2)+np.array(list_7_3)+np.array(list_7_4))/4.
+
+fig,ax = plt.subplots(1,2,figsize=(3.0,3.5))
+y = np.linspace(3481,6371,num=len(av_0))
+y2 = np.linspace(3481,6371,num=len(scat_000_120_list))
+ax[0].set_xlabel(r'C',fontsize=10)
+ax[1].set_xlabel(r'C',fontsize=10)
+ax[0].set_ylabel(r'Depth (km)',fontsize=10)
+ax[0].set_xlim((0,60))
+ax[0].set_ylim((3481,5371))
+ax[1].set_xlim((0,60))
+ax[1].set_ylim((3481,5371))
+ax[0].grid(alpha=0.5)
+ax[1].grid(alpha=0.5)
+ax[1].tick_params(axis='both', which='major', labelsize=5)
+ax[0].tick_params(axis='both', which='major', labelsize=5)
+ax[0].set_title(r'$\delta \rho = 0\%$',fontsize=10)
+ax[1].set_title(r'$\delta \rho = +7\%$',fontsize=10)
+
+rm = y2-y2.min()
+m = 0.002
+m2 = 0.0055
+ax[0].plot(1+np.array(scat_000_120_list[::-1])-rm*m2,y2,'salmon',alpha=1.0,label=r'$A_{1}$',lw=0.5)
+ax[0].plot(1+np.array(scat_000_40_list[::-1])-rm*m2,y2,'darkred',alpha=1.0,label=r'$A_{2}$',lw=0.5)
+ax[1].plot(np.array(scat_007_40_list[::-1])-rm*m2,y2,'cyan',alpha=1.0,label=r'$B_{1}$',lw=0.5)
+ax[1].plot(np.array(scat_007_150_list[::-1])-rm*m2,y2,'darkblue',alpha=1.0,label=r'$B_{2}$',lw=0.5)
+ax[0].plot(1+np.array(test_scat_list[::-1])-rm*m,y2,'k',label=r'$A$',lw=1.0)
+ax[1].plot(np.array(test_scat_list_7[::-1])-rm*m,y2,'k',label=r'$B$',lw=1.0)
+#ax.plot(av_7[::-1],y,'b',label=r'B',lw=3)
+
+ax[0].legend(loc=1,prop={'size':7},handlelength=3)
+ax[1].legend(loc=1,prop={'size':7},handlelength=3)
+ax[1].set_yticklabels([])
+plt.tight_layout()
+plt.show()
+

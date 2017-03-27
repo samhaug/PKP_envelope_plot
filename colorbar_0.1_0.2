@@ -12,6 +12,7 @@ import matplotlib.gridspec as gridspec
 from scipy.signal import tukey
 from matplotlib import cm
 from scipy.interpolate import interp2d
+from subprocess import call
 
 
 def interp_env(tenv):
@@ -48,7 +49,8 @@ gs = gridspec.GridSpec(90,200)
 
 #ax1 = fig.add_subplot(gs[0:100,0:45])
 ax1 = fig.add_subplot(gs[0:30,0:90])
-ax1.set_xticks([])
+#ax1.set_xticks([])
+ax1.set_xticklabels([])
 ax1.tick_params(axis='both', which='major', labelsize=labels)
 ax1.set_ylabel('Epicentral degrees',fontsize=font_size)
 ax1.set_title(r'A, $\delta v_{P} = 0.1\%$',fontsize=title_size)
@@ -75,13 +77,13 @@ ax4.set_xlabel('Time (sec)',fontsize=font_size)
 ax4.tick_params(axis='both', which='major', labelsize=labels)
 ax4.set_title(r'B, $\delta v_{P} = 0.2\%$',fontsize=title_size)
 
-env1 = h5py.File('uniform_EED_000.h5','r')
+env1 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/uniform_EED_000.h5','r')
 env1 = np.flipud(env1['env'][...])
-env2 = h5py.File('uniform_EED_007.h5','r')
+env2 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/uniform_EED_007.h5','r')
 env2 = np.flipud(env2['env'][...])
-env3 = h5py.File('EED_000_0.2percent.h5','r')
+env3 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_000_0.2percent.h5','r')
 env3 = np.flipud(env3['env'][...])
-env4 = h5py.File('EED_007_0.2percent.h5','r')
+env4 = h5py.File('/home/samhaug/work1/PKP_precursor_sims/bootstrap_h5_env/EED_007_0.2percent.h5','r')
 env4 = np.flipud(env4['env'][...])
 
 sr = int(env1.shape[1]/40.)
@@ -184,13 +186,19 @@ ax7.set_title(r'$\log_{10}$ Amplitude',fontsize=font_size)
 ax7.tick_params(axis='both', which='major', labelsize=10)
 plt.colorbar(im1,cax=ax7,orientation='horizontal',ticks=[-1.5,-1.0,-0.5,0])
 
-ax1.text(-6,138,'0.25',size=5,color='r')
-ax1.text(-11,138,'0.04',size=5,color='r')
+ax1.text(-10,138,'0.04',size=5,color='r')
+ax1.text(-6.8,139,'0.1',size=5,color='r')
+ax1.text(-3.5,139,'0.25',size=5,color='r')
+
+ax1.text(-5,134.5,'0.04',size=5,color='green')
+ax1.text(-1,136,'0.1',size=5,color='lime')
+ax1.text(1,137,'0.25',size=5,color='lime')
 
 #plt.colorbar(im,cax=ax_cbar,orientation='horizontal')
 #ax_cbar.set_xlabel(r'$\log_{10}$ Amplitude')
 #ax_cbar.set_xticks([-1.5,-1.0,0.5,0.0])
 #ax_cbar.xaxis.label.set_size(10)
 #ax_cbar.tick_params(axis='both', which='major', labelsize=10)
-plt.show()
+plt.savefig('grey_01_02.pdf')
+call('evince grey_01_02.pdf',shell=True)
 
