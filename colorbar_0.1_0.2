@@ -174,11 +174,11 @@ for ax in [ax1,ax2,ax3,ax4]:
     ax.set_ylim(130,140)
     #ax.axvline(0,color='w',lw=1,ls='dashed')
     ax.contour(xxd,yyd,-1*np.flipud(log_env),[1.0],
-               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+               hold='on',colors='red',lw=4,ls='dashed',alpha=0.5)
     ax.contour(xxd,yyd,-1*np.flipud(log_env),[0.6],
-               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+               hold='on',colors='red',lw=4,ls='dashed',alpha=0.5)
     ax.contour(xxd,yyd,-1*np.flipud(log_env),[1.4],
-               hold='on',colors='red',lw=4,ls='dashed',alpha=1.0)
+               hold='on',colors='red',lw=4,ls='dashed',alpha=0.5)
 
 #ax7 = fig.add_subplot(gs[320:327,10:90])
 ax7 = fig.add_subplot(gs[87:90,25:175])
